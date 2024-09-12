@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"net/http"
+
+	"greenlight.net/internal/validator"
 )
 
 func (app *application) logError(r *http.Request, err error) {
@@ -48,4 +50,8 @@ func (app *application) methodNotAllowedResponse(w http.ResponseWriter, r *http.
 
 func (app *application) badRequestResponse(w http.ResponseWriter, r *http.Request, err error) {
 	app.errorResponse(w, r, http.StatusBadRequest, err.Error())
+}
+
+func (app *application) failedValidationResponse(w http.ResponseWriter, r *http.Request, errors validator.ErrorMap) {
+	app.errorResponse(w, r, http.StatusUnprocessableEntity, errors)
 }
