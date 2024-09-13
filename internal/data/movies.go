@@ -1,10 +1,60 @@
 package data
 
 import (
+	"database/sql"
+	"errors"
 	"time"
 
+	"github.com/lib/pq"
 	"greenlight.net/internal/validator"
 )
+
+type MovieModel struct {
+	DB *sql.DB
+}
+
+// Insert adds the movie detail into the database and returns error if encountered.
+func (mm MovieModel) Insert(movie *Movie) error {
+	query := `
+		INSERT INTO movies (title, year, runtime, genres)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, created_at, version
+	`
+	args := []interface{}{movie.Title, movie.Year, movie.Runtime, pq.Array(movie.Genres)}
+	return mm.DB.QueryRow(query, args...).Scan(&movie.ID, &movie.CreatedAt, &movie.Version)
+}
+
+// Get finds the movie from the database based on the provided id and nil if
+// no error occurs, else nil and error is returned.
+func (mm MovieModel) Get(id int64) (*Movie, error) {
+	if id < 1 {
+		return nil, ErrRecordNotFound
+	}
+	query := `
+		SELECT id, created_at, title, year, runtime, genres, version
+		FROM movies
+		WHERE id = $1`
+	var movie Movie
+	err := mm.DB.QueryRow(query, id).Scan(&movie.ID, &movie.CreatedAt, &movie.Title, &movie.Year, &movie.Runtime, pq.Array(&movie.Genres), &movie.Version)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+
+	return &movie, nil
+}
+
+func (mm MovieModel) Update(movie *Movie) error {
+	return nil
+}
+
+func (mm MovieModel) Delete(id int64) error {
+	return nil
+}
 
 type Movie struct {
 	Title     string    `json:"title"`
