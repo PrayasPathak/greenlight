@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"time"
@@ -8,6 +9,8 @@ import (
 	"github.com/lib/pq"
 	"greenlight.net/internal/validator"
 )
+
+const contextTimeout = 3
 
 type MovieModel struct {
 	DB *sql.DB
@@ -20,8 +23,14 @@ func (mm MovieModel) Insert(movie *Movie) error {
 		VALUES ($1, $2, $3, $4)
 		RETURNING id, created_at, version
 	`
-	args := []interface{}{movie.Title, movie.Year, movie.Runtime, pq.Array(movie.Genres)}
-	return mm.DB.QueryRow(query, args...).Scan(&movie.ID, &movie.CreatedAt, &movie.Version)
+	args := []interface{}{
+		movie.Title,
+		movie.Year,
+		movie.Runtime,
+		pq.Array(movie.Genres)}
+	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout*time.Second)
+	defer cancel()
+	return mm.DB.QueryRowContext(ctx, query, args...).Scan(&movie.ID, &movie.CreatedAt, &movie.Version)
 }
 
 // Get finds the movie from the database based on the provided id and nil if
@@ -35,7 +44,16 @@ func (mm MovieModel) Get(id int64) (*Movie, error) {
 		FROM movies
 		WHERE id = $1`
 	var movie Movie
-	err := mm.DB.QueryRow(query, id).Scan(&movie.ID, &movie.CreatedAt, &movie.Title, &movie.Year, &movie.Runtime, pq.Array(&movie.Genres), &movie.Version)
+	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout*time.Second)
+	defer cancel()
+	err := mm.DB.QueryRowContext(ctx, query, id).Scan(
+		&movie.ID,
+		&movie.CreatedAt,
+		&movie.Title,
+		&movie.Year,
+		&movie.Runtime,
+		pq.Array(&movie.Genres),
+		&movie.Version)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -63,8 +81,9 @@ func (mm MovieModel) Update(movie *Movie) error {
 		movie.ID,
 		movie.Version,
 	}
-
-	err := mm.DB.QueryRow(query, args...).Scan(&movie.Version)
+	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout*time.Second)
+	defer cancel()
+	err := mm.DB.QueryRowContext(ctx, query, args...).Scan(&movie.Version)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -85,8 +104,9 @@ func (mm MovieModel) Delete(id int64) error {
 		DELETE FROM movies
 		WHERE id = $1
 	`
-
-	result, err := mm.DB.Exec(query, id)
+	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout*time.Second)
+	defer cancel()
+	result, err := mm.DB.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
 	}
