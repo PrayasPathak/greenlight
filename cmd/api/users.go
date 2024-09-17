@@ -23,16 +23,19 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		app.badRequestResponse(w, r, err)
 		return
 	}
+
 	user := &data.User{
 		Name:      input.Name,
 		Email:     input.Email,
 		Activated: false,
 	}
+
 	err = user.Password.Set(input.Password)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
+
 	v := validator.New()
 	if data.ValidateUser(v, user); !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
@@ -48,6 +51,13 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		default:
 			app.serverErrorResponse(w, r, err)
 		}
+		return
+	}
+
+	// Add permission to the inserted user
+	err = app.models.Permissions.AddForUser(user.ID, "movies:read")
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
 		return
 	}
 
