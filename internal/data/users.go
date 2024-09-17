@@ -160,6 +160,12 @@ type User struct {
 	Version   int       `json:"-"`
 }
 
+var AnonymousUser = &User{}
+
+func (u *User) IsAnonymous() bool {
+	return u == AnonymousUser
+}
+
 type password struct {
 	plaintext *string
 	hash      []byte
