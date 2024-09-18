@@ -1,3 +1,5 @@
+include .envrc
+# HELPERS
 ## help: Display usage information
 .PHONY: help
 help:
@@ -9,10 +11,11 @@ help:
 confirm:
 	@echo -n 'Are you sure? [y/N] ' && read ans && [ $${ans:-N} = y ]
 
+# DEVELOPMENT
 ## build/api: Build the API
-.PHONY: build/api
-build/api:
-	@go build -o ./bin/api ./cmd/api
+# .PHONY: build/api
+# build/api:
+# 	@go build -o ./bin/api ./cmd/api
 
 ## db/psql: Connect to the database
 .PHONY: db/psql
@@ -33,5 +36,20 @@ db/migrations/up: confirm
 
 ## run/api: Run the API
 .PHONY: run/api
-run/api: build/api
-	@./bin/api
+run/api: 
+	@go run ./cmd/api -db-dsn=${GREENLIGHT_DB_DSN}
+
+# QUALITY CONTROL
+## audit: tidy dependencies and format, vet and test all code
+.PHONY: audit
+audit:
+	@echo 'Tidying and verifying module dependencies...'
+	go mod tidy
+	go mod verify
+	@echo 'Formatting code...'
+	go fmt ./...
+	@echo 'Vetting code...'
+	go vet ./...
+	staticcheck ./...
+	@echo 'Running tests...'
+	go test -race -vet=off ./...
